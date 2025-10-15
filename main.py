@@ -18,7 +18,7 @@ def load_yolo(model_path):
 def detect(car_model, plate_model, plate_ocr_model, image_path, output_path, unique_id):
     img = cv2.imread(image_path)
 
-    yolo_result = car_model(source=img, conf=0.5, classes=[2])
+    yolo_result = car_model(source=img, conf=0.5, classes=[2,3])
 
     result = yolo_result[0] # Como só tem uma imagem, pega o resultado 0
 
@@ -34,15 +34,17 @@ def detect(car_model, plate_model, plate_ocr_model, image_path, output_path, uni
         x1, y1, x2, y2 = map(int, car_bbox.xyxy[0].tolist())
 
         conf = car_bbox.conf.item()
-        # class_id = int(car_bbox.cls.item()) # Sempre carro
+        class_id = int(car_bbox.cls.item()) # Sempre carro
 
-        text = f"carro {index} - {(conf * 100):.2f}%"
+        img_class = "carro" if class_id == 2 else "moto"
+
+        text = f"{img_class} {index} - {(conf * 100):.2f}%"
         cv2.putText(img, text, (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,0,0), 2, cv2.LINE_AA)
         cv2.rectangle(img, (x1,y1), (x2,y2), (255,0,0), 2)
 
         car_cropped = img[y1:y2, x1:x2]
 
-        detect_plate(plate_model, plate_ocr_model, car_cropped, index)
+        detect_plate(plate_model, plate_ocr_model, car_cropped, index, img_class)
         index += 1
     cv2.imshow(image_path, img)
     cv2.waitKey(0)
@@ -51,7 +53,7 @@ def detect(car_model, plate_model, plate_ocr_model, image_path, output_path, uni
     print(len(result))
 
 
-def detect_plate(plate_model, plate_ocr_model,car_image, index):
+def detect_plate(plate_model, plate_ocr_model,car_image, index, type_class):
     yolo_result = plate_model(source=car_image, conf=0.2)
     
     result = yolo_result[0]
@@ -68,7 +70,7 @@ def detect_plate(plate_model, plate_ocr_model,car_image, index):
         # class_id = int(car_bbox.cls.item()) # Sempre placa
 
         plate_cropped = car_image[y1:y2, x1:x2]
-        plate = convert_plate_to_string(plate_ocr_model, plate_cropped)
+        plate = convert_plate_to_string(plate_ocr_model, plate_cropped, type_class)
 
         print(f"Placa detectada no carro {index}: ", plate)
 
@@ -85,7 +87,7 @@ def detect_plate(plate_model, plate_ocr_model,car_image, index):
         cv2.putText(car_image, text2, position2, font_face, font_scale, color, font_thickness, line_type)
         cv2.rectangle(car_image, (x1,y1), (x2,y2), (255,0,0), 2)
 
-def convert_plate_to_string(plate_ocr_model, plate_image):
+def convert_plate_to_string(plate_ocr_model, plate_image, type_class):
     # https://blog.dp6.com.br/regex-o-guia-essencial-das-express%C3%B5es-regulares-2fc1df38a481
 
     ocr_result = plate_ocr_model.run(plate_image)
@@ -94,8 +96,13 @@ def convert_plate_to_string(plate_ocr_model, plate_image):
         return ""
 
     plate = ocr_result[0].replace("_", "").strip()
+    print(plate)
 
-    plate_filtered = re.search(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2,3}', plate)
+    plate = plate.upper()
+    if type_class == "carro":
+        plate_filtered = re.search(r'[A-Z]{3}[0-9][A-Z0-9][0-9]{2,3}', plate)
+    else:
+        plate_filtered = re.search(r'[A-Z]{3}[0-9]{4}', plate)
 
     return plate_filtered.group(0) if plate_filtered else ""
 
@@ -106,7 +113,7 @@ def run():
     # plate_ocr_model = LicensePlateRecognizer('global-plates-mobile-vit-v2-model')
     plate_ocr_model = LicensePlateRecognizer('cct-s-v1-global-model')
 
-    image_path = "images_test/image8.png"
+    image_path = "images_test/moto.jpeg"
 
     if not os.path.exists(image_path):
         Colors.error(f"Erro: Imagem não encontrada em {image_path}")
