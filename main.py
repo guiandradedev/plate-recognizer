@@ -196,7 +196,7 @@ def run_many():
     if not os.path.exists(output_path):
         os.makedirs(output_path, exist_ok=True)
 
-    min_images = 11
+    min_images = 1
     max_images = 16
     images = []
     titles = []
@@ -226,7 +226,7 @@ def run_many():
 
 
 def run():
-    car_model = load_yolo("yolo11m.pt")
+    car_model = load_yolo("yolo11x.pt")
     plate_model = load_yolo("plate-model.pt")
     color_model = load_yolo("color-classifier.pt")
     # plate_ocr_model = LicensePlateRecognizer('global-plates-mobile-vit-v2-model')
@@ -247,4 +247,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run_many()
